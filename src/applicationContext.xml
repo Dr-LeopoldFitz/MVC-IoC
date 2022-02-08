@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="utf-8"?>
+
+<beans>
+
+    <bean id="fruitDAO" class="com.hive.fruit.dao.impl.FruitDAOImpl"/>
+
+    <bean id="fruitService" class="com.hive.fruit.service.impl.FruitServiceImpl">
+        <property name="fruitDAO" ref="fruitDAO"/>
+    </bean>
+
+    <bean id="fruit" class="com.hive.fruit.controllers.FruitController">
+        <property name="fruitService" ref="fruitService"/>
+    </bean>
+</beans>
+<!--
+Node 节点
+    Element 元素节点
+    Text 文本节点
+<sname>jim</sname>
+-->
+
