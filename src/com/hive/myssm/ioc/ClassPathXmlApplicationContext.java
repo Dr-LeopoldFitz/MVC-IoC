@@ -1,5 +1,6 @@
-package com.hive.myssm.io;
+package com.hive.myssm.ioc;
 
+import com.hive.myssm.util.StringUtil;
 import org.w3c.dom.Document;
 import org.w3c.dom.Element;
 import org.w3c.dom.Node;
@@ -20,11 +21,24 @@ public class ClassPathXmlApplicationContext implements BeanFactory {
     //需要一个Map容器
     private Map<String, Object> beanMap = new HashMap<>();
 
-    public ClassPathXmlApplicationContext() {
+    //配置文件默认设置为applicationContext.xml
+    private String path = "applicationContext.xml" ;
+    public ClassPathXmlApplicationContext(){
+        //无参的构造函数调用有参的构造函数
+        this("applicationContext.xml");
+    }
+
+
+    public ClassPathXmlApplicationContext(String path) {
+
+        if(StringUtil.isEmpty(path)){
+            throw new RuntimeException("IOC容器的配置文件没有指定...");
+        }
+
         //将原DispatchServlet类内的init代码全部粘贴进try块即可即可
         try {
             //加载配置文件
-            InputStream inputStream = getClass().getClassLoader().getResourceAsStream("applicationContext.xml");
+            InputStream inputStream = getClass().getClassLoader().getResourceAsStream(path);
             //1.创建DocumentBuilderFactory
             DocumentBuilderFactory documentBuilderFactory = DocumentBuilderFactory.newInstance();
             //2.创建DocumentBuilder对象

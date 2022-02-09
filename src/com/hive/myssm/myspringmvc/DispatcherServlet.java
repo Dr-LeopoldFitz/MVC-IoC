@@ -1,7 +1,6 @@
 package com.hive.myssm.myspringmvc;
 
-import com.hive.myssm.io.BeanFactory;
-import com.hive.myssm.io.ClassPathXmlApplicationContext;
+import com.hive.myssm.ioc.BeanFactory;
 import com.hive.myssm.util.StringUtil;
 
 
@@ -26,8 +25,16 @@ public class DispatcherServlet extends ViewBaseServlet {
 
     public void init() throws ServletException {
         super.init();
-        //！！！
-        beanFactory = new ClassPathXmlApplicationContext();
+        //之前是在此处主动创建IOC容器的
+        //现在优化为从application作用域去获取
+        //beanFactory = new ClassPathXmlApplicationContext();
+        ServletContext application = getServletContext();
+        Object beanFactoryObj = application.getAttribute("beanFactory");
+        if(beanFactoryObj!=null){
+            beanFactory = (BeanFactory)beanFactoryObj ;
+        }else{
+            throw new RuntimeException("IOC容器获取失败！");
+        }
     }
 
     @Override

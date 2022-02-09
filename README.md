@@ -119,7 +119,7 @@ public class FruitController {
 如：`<bean id="fruitDAO" class="com.hive.fruit.dao.impl.FruitDAOImpl"/>` 根据id`fruitDAO`获取到一个实例对象`com.hive.fruit.dao.impl.FruitDAOImpl`
 
 ```java
-package com.hive.myssm.io;
+package com.hive.myssm.ioc;
 
 public interface BeanFactory {
     Object getBean(String id); //根据id获取到Bean对象
@@ -130,7 +130,7 @@ public interface BeanFactory {
 4. 再写一个实现类`ClassPathXmlApplicationContext`实现`BeanFactory`接口
 
 ```java
-package com.hive.myssm.io;
+package com.hive.myssm.ioc;
 
 import org.w3c.dom.Document;
 import org.w3c.dom.Element;
@@ -356,3 +356,103 @@ for(int i = 0 ; i<beanNodeList.getLength() ; i++){ //遍历每一组<bean></bean
 
 
 本例是MVC IoC DI 的一个简单手动实现，理解后对相关框架理解大有帮助。
+
+## 再优化
+在`DispatcherServlet`中,中央控制器初始化时初始了IoC容器
+```java
+ public void init() throws ServletException {
+        super.init();
+        beanFactory = new ClassPathXmlApplicationContext();
+    }
+```
+还能再优化：在当前上下文被创建的时候，IoC容器即准备就绪，某对象需要组件的时候设置给某对象。而不是当中央控制器被初始化的时候再去初始化IoC容器。
+这样启动的性能会稍微弱一点，但是整个系统响应性能要高得多。
+
+新增文件：`com.hive.myssm.listeners.ContextLoaderListener.java`
+```java
+package com.hive.myssm.listeners;
+
+import com.hive.myssm.ioc.BeanFactory;
+import com.hive.myssm.ioc.ClassPathXmlApplicationContext;
+
+import javax.servlet.ServletContext;
+import javax.servlet.ServletContextEvent;
+import javax.servlet.ServletContextListener;
+import javax.servlet.annotation.WebListener;
+
+//监听上下文启动，在上下文启动的时候去创建IOC容器,然后将其保存到application作用域
+//后面中央控制器再从application作用域中去获取IOC容器
+@WebListener
+public class ContextLoaderListener implements ServletContextListener {
+    @Override
+    public void contextInitialized(ServletContextEvent servletContextEvent) {
+        //1.获取ServletContext对象
+        ServletContext application = servletContextEvent.getServletContext();
+        //2.获取上下文的初始化参数
+        String path = application.getInitParameter("contextConfigLocation");
+        //3.创建IOC容器
+        BeanFactory beanFactory = new ClassPathXmlApplicationContext(path);
+        //4.将IOC容器保存到application作用域
+        application.setAttribute("beanFactory",beanFactory);
+    }
+
+    @Override
+    public void contextDestroyed(ServletContextEvent servletContextEvent) {
+
+    }
+}
+
+```
+
+`DispatcherServlet`相应代码段改为：
+```java
+    public void init() throws ServletException {
+        super.init();
+        //之前是在此处主动创建IOC容器的
+        //现在优化为从application作用域去获取
+        //beanFactory = new ClassPathXmlApplicationContext();
+        ServletContext application = getServletContext();
+        Object beanFactoryObj = application.getAttribute("beanFactory");
+        if(beanFactoryObj!=null){
+            beanFactory = (BeanFactory)beanFactoryObj ;
+        }else{
+            throw new RuntimeException("IOC容器获取失败！");
+        }
+    }
+```
+
+再修改`ClassPathXmlApplicationContext.java`，将写死的配置文件路径优化成自动获取
+```java
+//配置文件默认设置为applicationContext.xml
+private String path = "applicationContext.xml" ;
+
+public ClassPathXmlApplicationContext(){
+    //无参的构造函数调用有参的构造函数
+    this("applicationContext.xml");
+}
+
+public ClassPathXmlApplicationContext(String path) {
+
+    if(StringUtil.isEmpty(path)){
+        throw new RuntimeException("IOC容器的配置文件没有指定...");
+    }
+
+try {
+    //加载配置文件
+    InputStream inputStream = getClass().getClassLoader().getResourceAsStream(path);
+    ...
+
+```
+
+
+
+
+
+更改配置文件`web\WEB-INF\web.xml`，新增如下代码：
+```xml
+<context-param>
+    <param-name>contextConfigLocation</param-name>
+    <param-value>applicationContext.xml</param-value>
+</context-param>
+
+```
